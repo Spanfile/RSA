@@ -2,6 +2,8 @@
 
 from random import SystemRandom
 from argparse import ArgumentParser
+from multiprocessing import Process, Queue
+from multiprocessing import connection
 
 
 def main():
@@ -9,43 +11,73 @@ def main():
     bits = args.bits[0]
     print("Using {}-bit keys".format(bits))
 
-    print("Generating two primes: p and q")
-    p = generate_random_prime(bits)
-    q = generate_random_prime(bits)
-    N = p * q
-    p1q1 = (p - 1) * (q - 1)
-    print("p: {}, q: {}, N: {}, (p-1)(q-1): {}".format(p, q, N, p1q1))
+    output = Queue()
+    procs = [Process(target=generate_keypair, args=(bits, output)) for i in range(8)]
 
-    print("Generating public-key exponent e")
-    e = generate_public_key_exponent(N, p1q1)
-    print("e: {}".format(e))
+    for p in procs:
+        p.start()
 
-    print("Generating private-key exponent d")
-    d = generate_private_key_exponent(bits, e, p1q1)
-    print("d: {}".format(d))
+    connection.wait([p.sentinel for p in procs])
 
-    print("Public key: \{N: {}, e: {}\}".format(N, e))
-    print("Private key: \{N: {}, d: {}\}".format(N, d))
+    for p in procs:
+        p.terminate()
+
+    result = output.get()
+    print(result)
 
 
 def create_parser():
     parser = ArgumentParser(description="Generate an RSA keypair of a defined size")
     parser.add_argument("bits", type=int, nargs=1, help="key bit length")
+    parser.add_argument("-t", "--tasks", type=int, nargs=1, help="number of tasks to run in parallel")
     return parser
 
 
-def shuffle_range(rng, min, max):
-    l = list(range(min, max))
-    rng.shuffle(l)
-    return l
+def generate_keypair(bits, output):
+    while True:
+        # print("Key generation attempt {}".format(attempt))
+        # print("Generating two primes: p and q")
+        p = generate_random_prime(bits)
+        q = generate_random_prime(bits)
+        N = p * q
+        p1q1 = (p - 1) * (q - 1)
+        # print("p: {}, q: {}, N: {}, (p-1)(q-1): {}".format(p, q, N, p1q1))
+
+        # print("Generating public-key exponent e")
+        e = generate_public_key_exponent(N, p1q1)
+        # print("e: {}".format(e))
+
+        # print("Generating private-key exponent d")
+        d = generate_private_key_exponent(bits, e, p1q1)
+
+        if not d:
+            print("-", end="", flush=True)
+            continue
+
+        # print("d: {}".format(d))
+
+        print("+")
+
+        # print("Public key: (N: {}, e: {})".format(N, e))
+        # print("Private key: (N: {}, d: {})".format(N, d))
+        output.put(({'N': N, 'e': e}, {'N': N, 'd': d}))
+        break
 
 
 def generate_random_prime(bits):
     min = 4
     max = (1 << bits) - 1
+    checked = []
     rng = SystemRandom()
 
-    for p in shuffle_range(rng, min, max):
+    while True:
+        while True:
+            p = rng.randint(min, max)
+
+            if p not in checked:
+                break
+
+        checked.append(p)
         if test_primality(p):
             return p
 
@@ -66,9 +98,9 @@ def test_primality(num, iterations=5):
         if not rem == 1:
             return False
 
-        print("+", end="", flush=True)
+        # print("+", end="", flush=True)
 
-    print("*")
+    # print("*")
     return True
 
 
@@ -87,20 +119,31 @@ def pow(num, exp):
 
 
 def generate_public_key_exponent(N, p1q1):
-    rng = SystemRandom()
-
-    for e in shuffle_range(rng, 1, N):
-        if gcd(e, p1q1) == 1:
-            return e
-
-
-def generate_private_key_exponent(bits, e, p1q1):
-    max = (1 << bits) - 1
     checked = []
     rng = SystemRandom()
 
     while True:
         while True:
+            e = rng.randint(1, N)
+
+            if e not in checked:
+                break
+
+        checked.append(e)
+        if gcd(e, p1q1) == 1:
+            return e
+
+
+def generate_private_key_exponent(bits, e, p1q1):
+    max = (1 << bits)
+    checked = []
+    rng = SystemRandom()
+
+    while True:
+        while True:
+            if len(checked) == max:
+                return None
+
             d = rng.randint(1, max)
 
             if d not in checked:
