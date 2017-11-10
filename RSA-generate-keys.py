@@ -8,7 +8,6 @@ from time import time
 def main():
     args = create_parser().parse_args()
     bits = args.bits[0]
-    print("Using {}-bit keys".format(bits))
 
     public_key, private_key = generate_keypair(bits)
     print(public_key, private_key)
