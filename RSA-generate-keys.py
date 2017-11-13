@@ -3,7 +3,6 @@
 import json
 from random import SystemRandom
 from argparse import ArgumentParser
-from time import time
 
 
 def main():
