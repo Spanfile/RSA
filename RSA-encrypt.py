@@ -1,36 +1,33 @@
 #!/usr/bin/python3
 
+import json
 from argparse import ArgumentParser
 
 
 def main():
     args = create_parser().parse_args()
-    N = args.N[0]
-    e = args.e[0]
     m = args.message[0]
 
-    print(mod_pow(m, e, N))
+    with open("rsa_public_key", "r") as f:
+        public_key = json.load(f)
+
+    print(mod_pow(m, public_key['e'], public_key['N']))
 
 
 def create_parser():
-    parser = ArgumentParser(description="Encrypt an RSA message with a given public key")
-    parser.add_argument("N", type=int, nargs=1, help="N")
-    parser.add_argument("e", type=int, nargs=1, help="e")
+    parser = ArgumentParser(description="Encrypt an RSA message")
     parser.add_argument("message", type=int, nargs=1, help="the message to encrypt")
     return parser
 
 
 def mod_pow(num, exp, mod):
-    base = num
     result = 1
 
-    while exp > 0:
+    while exp:
         if exp & 1:
-            quot, rem = divmod(result * base, mod)
-            result = rem
+            result = result * num % mod
         exp >>= 1
-        quot, rem = divmod(pow(base, 2), mod)
-        base = rem
+        num = num * num % mod
 
     return result
 

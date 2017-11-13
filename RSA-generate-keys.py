@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import json
 from random import SystemRandom
 from argparse import ArgumentParser
 from time import time
@@ -8,9 +9,17 @@ from time import time
 def main():
     args = create_parser().parse_args()
     bits = args.bits[0]
+    print("Using {}-bit keys".format(bits))
 
     public_key, private_key = generate_keypair(bits)
-    print(public_key, private_key)
+
+    with open("rsa_public_key", "w") as f:
+        json.dump(public_key, f)
+
+    with open("rsa_private_key", "w") as f:
+        json.dump(private_key, f)
+
+    print("Key files written")
 
 
 def create_parser():
@@ -23,21 +32,16 @@ def generate_keypair(bits):
     e = 65537
 
     while True:
-        print("Generating p...", end="", flush=True)
-        start_t = time()
+        print("Generating p...")
         p = generate_random_prime(bits)
-        elapsed = time() - start_t
-        print(" -> {} generated in {}ms".format(p, elapsed * 1000))
 
-        print("Generating q...", end="", flush=True)
-        start_t = time()
+        print("Generating q...")
         q = generate_random_prime(bits)
-        elapsed = time() - start_t
-        print(" -> {} generated in {}ms".format(q, elapsed * 1000))
 
         l = lcm(p - 1, q - 1)
 
-        if gcd(e, l) == 1 and abs(p - q) >> (bits // 2) != 0:
+        # if gcd(e, l) == 1 and abs(p - q) >> (bits // 2) != 0:
+        if gcd(e, l) == 1:
             break
 
     N = p * q
@@ -62,12 +66,15 @@ def generate_random_prime(bits):
             return p
 
 
-def test_primality(num, iterations=5):
+def test_primality(num, iterations=7):
+    if num & 1 == 0:
+        return False
+
     rng = SystemRandom()
     max = num - 2
     for i in range(iterations):
         a = rng.randint(2, max)
-        if mod_pow(num, a - 1, a) != 1:
+        if mod_pow(a, num - 1, num) != 1:
             return False
 
     return True
@@ -88,16 +95,13 @@ def pow(num, exp):
 
 
 def mod_pow(num, exp, mod):
-    base = num
     result = 1
 
-    while exp > 0:
+    while exp:
         if exp & 1:
-            quot, rem = divmod(result * base, mod)
-            result = rem
+            result = result * num % mod
         exp >>= 1
-        quot, rem = divmod(pow(base, 2), mod)
-        base = rem
+        num = num * num % mod
 
     return result
 
@@ -106,7 +110,7 @@ def mod_inv(num, mod):
     t = 0
     new_t = 1
     r = mod
-    new_r = num
+    new_r = abs(num)
 
     while new_r != 0:
         q = r // new_r
@@ -132,12 +136,14 @@ def mod_inv(num, mod):
 
 
 def gcd(a, b):
-    while b != 0:
+    while b:
         a, b = b, a % b
     return a
 
 
 def lcm(a, b):
+    a = abs(a)
+    b = abs(b)
     return (a // gcd(a, b)) * b
 
 
