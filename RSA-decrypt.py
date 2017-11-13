@@ -8,6 +8,9 @@ def main():
     args = create_parser().parse_args()
     m = args.message[0]
 
+    if m == "-":
+        m = int(input())
+
     with open("rsa_private_key", "r") as f:
         private_key = json.load(f)
 
@@ -16,7 +19,7 @@ def main():
 
 def create_parser():
     parser = ArgumentParser(description="Decrypt an RSA message")
-    parser.add_argument("message", type=int, nargs=1, help="the encrypted message to decrypt")
+    parser.add_argument("message", nargs=1, help="the encrypted message to decrypt")
     return parser
 
 
