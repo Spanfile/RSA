@@ -39,7 +39,6 @@ def generate_keypair(bits):
 
         l = lcm(p - 1, q - 1)
 
-        # if gcd(e, l) == 1 and abs(p - q) >> (bits // 2) != 0:
         if gcd(e, l) == 1:
             break
 
